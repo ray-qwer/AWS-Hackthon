@@ -7,7 +7,7 @@
 - NOT START YET
 
 ## System Architecture
-
+![image](https://github.com/ray-qwer/AWS-Hackthon/blob/dev/架構圖.png)
 
 ## TeamMembers
 ray-qwer
