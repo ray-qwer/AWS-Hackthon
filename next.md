@@ -54,6 +54,10 @@ Lambda 修改成兩個。Lambda 1 負責串接前後端，並且連接一個 Nov
   - 設定存取語音服務的權限
   - 設定存取影片服務的權限
 
+Some Reference of Lamda using agent flow
+https://github.com/aws-educate-tw/aws_educate_taylor_swift_workshop/tree/main
+
+
 #### Bedrock Nova（文字生成）
 - Knowledge Base資料
   - 採訪講稿（聖融已經切好其中一部，剩下轉文字檔）:共有5部，但時間來不及可以先搞定一步就好 
