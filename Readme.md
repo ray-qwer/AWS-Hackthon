@@ -3,8 +3,6 @@
 ## How to use
 - EMPTY
 
-## Workflow
-- NOT START YET
 
 ## System Architecture
 ![image](https://github.com/ray-qwer/AWS-Hackthon/blob/dev/架構圖.png)
@@ -25,12 +23,33 @@
 ## Next Action
 watch next.md
 
+
+## External Packages
+1. Public Voice API
+- Documentation: [PublicVoiceAPI-FEniX.pdf](https://reurl.cc/4L1MEK)
+- Response Examples:
+  - mode=stream:
+    ```json
+    {
+      "message": "success",
+      "media_url": "https://cdn.data.gamania.com/persona-sound/20241014/ting/05870db4-6b07-48a0-b7f0-3ed69e137989.wav"
+    }
+    ```
+  - mode=file: Binary file content
+
+2. MuseTalk
+- Documentation: [MuseTalkInstallationandSetupGuide.pdf](https://reurl.cc/QYLo8p)
+- Input: 
+  - .wav (audio)
+  - .mp4 (video)
+- Output: .mp4 (video)
+
 ## TeamMembers
 ray-qwer
 derek890111
 
-# Reference
-## AWS Educate Workshop - 呀哈！以 AWS Bedrock + AI Agent 打造單身「吉」地獄
+## Reference
+### AWS Educate Workshop - 呀哈！以 AWS Bedrock + AI Agent 打造單身「吉」地獄
 https://github.com/aws-educate-tw/aws-educate-chiikawa-ai-workshop/tree/main
 ![AWS AI WS - Page 1 (1)](https://github.com/user-attachments/assets/188465b9-8cb7-4094-80cc-abb87f8ebc13)
 
