@@ -3,3 +3,5 @@ __pycache__/
 **/npm_modules/
 npm_modules/
 .DS_Store
+**/materials/
+**/models/
