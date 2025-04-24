@@ -25,13 +25,11 @@ from .app import run
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-
-#######
 # 測試時需要
-from dotenv import load_dotenv
-load_dotenv()
+if not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):  # 檢查是否在 Lambda 環境
+    from dotenv import load_dotenv
+    load_dotenv()
 
-#######
 configuration = Configuration(access_token=os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
