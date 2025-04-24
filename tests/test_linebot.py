@@ -14,12 +14,6 @@ import logging
 2.設置必要的環境變數
 3.驗證 lambda handler 的回應是否正確
 
-注意事項：
-1.記得替換環境變數中的值為你的測試值
-2.在實際測試時，可能需要 mock 一些外部服務（如 DynamoDB、S3 等）
-3.建議使用 pytest-mock 來協助處理 mocking
-4.測試檔案中的簽名驗證可能需要額外處理，因為實際的簽名驗證需要真實的 Channel Secret
-
 這個測試檔案可以幫助你在本地開發時驗證 LINE Bot 的基本功能是否正常運作。
 """
 
