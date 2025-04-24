@@ -1,4 +1,5 @@
-import db
+# import db
+from . import db  # 使用相對導入
 from langchain_aws import ChatBedrock
 import boto3
 import io
@@ -6,17 +7,17 @@ from PIL import Image
 
 import os
 import time
-import asset
+from . import asset
 import requests
 import json
 from pydantic import BaseModel, Field
 from langchain.tools import StructuredTool, tool
 from typing import List, Dict, Optional, Union, Literal
-from tools import (
-    get_weather, WeatherArgs,
-    get_map, MapArgs,
-    query_knowledge_base, RagQueryArgs, get_quiz_result
-)
+# from tools import (
+#     get_weather, WeatherArgs,
+#     get_map, MapArgs,
+#     query_knowledge_base, RagQueryArgs, get_quiz_result
+# )
 
 from langchain_core.messages import HumanMessage
 from langgraph_checkpoint_aws.saver import BedrockSessionSaver
