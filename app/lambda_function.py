@@ -79,17 +79,39 @@ def handle_message(event):
             )
         )
 
+# 專門處理文字訊息的處理器，用於測試
+def handle_text_message(event):
+    """處理文字訊息的專用函數，委派給通用處理器"""
+    logger.info("Handling text message...")
+    handle_message(event)
+    # 不需要返回值，因為 handle_message 已經處理了回覆
+
+# 專門處理貼圖訊息的處理器，用於測試
+def handle_sticker_message(event):
+    """處理貼圖訊息的專用函數，委派給通用處理器"""
+    logger.info("Handling sticker message...")
+    handle_message(event)
+    # 不需要返回值，因為 handle_message 已經處理了回覆
+
 def lambda_handler(event, context):
     try: 
+        logger.info(f"Received event: {json.dumps(event)}")
         body = event['body']
         signature = event['headers']['x-line-signature']
+        logger.info(f"Handling request with signature: {signature}")
         handler.handle(body, signature)
+        logger.info("Request handled successfully")
         return {
             'statusCode': 200,
             'body': json.dumps('Success!!!')
         }
     except Exception as e:
+        logger.error(f"Error in lambda_handler: {str(e)}", exc_info=True)
         return {
             'statusCode': 500,
             'body': json.dumps(str(e))
         }
+
+
+
+
