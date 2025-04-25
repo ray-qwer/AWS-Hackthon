@@ -4,3 +4,5 @@ __pycache__/
 npm_modules/
 .DS_Store
 .env
+**/materials/
+**/models/
