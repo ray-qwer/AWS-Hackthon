@@ -20,10 +20,15 @@ from linebot.v3.webhooks import (
 )
 import urllib.request
 
-from app import run
+from .app import run
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+# 測試時需要
+if not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):  # 檢查是否在 Lambda 環境
+    from dotenv import load_dotenv
+    load_dotenv()
 
 configuration = Configuration(access_token=os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
@@ -74,17 +79,39 @@ def handle_message(event):
             )
         )
 
+# 專門處理文字訊息的處理器，用於測試
+def handle_text_message(event):
+    """處理文字訊息的專用函數，委派給通用處理器"""
+    logger.info("Handling text message...")
+    handle_message(event)
+    # 不需要返回值，因為 handle_message 已經處理了回覆
+
+# 專門處理貼圖訊息的處理器，用於測試
+def handle_sticker_message(event):
+    """處理貼圖訊息的專用函數，委派給通用處理器"""
+    logger.info("Handling sticker message...")
+    handle_message(event)
+    # 不需要返回值，因為 handle_message 已經處理了回覆
+
 def lambda_handler(event, context):
     try: 
+        logger.info(f"Received event: {json.dumps(event)}")
         body = event['body']
         signature = event['headers']['x-line-signature']
+        logger.info(f"Handling request with signature: {signature}")
         handler.handle(body, signature)
+        logger.info("Request handled successfully")
         return {
             'statusCode': 200,
             'body': json.dumps('Success!!!')
         }
     except Exception as e:
+        logger.error(f"Error in lambda_handler: {str(e)}", exc_info=True)
         return {
             'statusCode': 500,
             'body': json.dumps(str(e))
         }
+
+
+
+

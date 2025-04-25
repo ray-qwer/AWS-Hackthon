@@ -3,5 +3,6 @@ __pycache__/
 **/npm_modules/
 npm_modules/
 .DS_Store
+.env
 **/materials/
 **/models/
