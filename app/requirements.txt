@@ -8,3 +8,5 @@ langgraph-checkpoint-aws
 python-dotenv
 boto3
 pillow
+pytest
+pytest-mock
