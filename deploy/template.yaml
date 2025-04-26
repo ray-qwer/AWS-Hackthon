@@ -5,7 +5,7 @@ Description: AI Idol Interaction System
 Parameters:
   ProjectName:
     Type: String
-    Default: chiikawa-ws
+    Default: aws-hackthon-gamania
     Description: Project name for resource naming
 
   # LINE Bot Configuration when setting stack
@@ -251,7 +251,7 @@ Resources:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: !Sub ${ProjectName}-api
-      Description: API for AWS-HACKTHON, 眾量橘 LineBot
+      Description: API for AWS-HACKTHON, ??? LineBot
 
   # API Gateway method
   RootMethod:
@@ -294,7 +294,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${ProjectName}-message-queue
-      VisibilityTimeout: 300
+      VisibilityTimeout: 610
       MessageRetentionPeriod: 345600  # 4 days
 
   # SQS Queues
@@ -302,21 +302,21 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${AWS::StackName}-line-queue
-      VisibilityTimeout: 300
+      VisibilityTimeout: 610
       MessageRetentionPeriod: 86400
 
   ClassifierQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${AWS::StackName}-classifier-queue
-      VisibilityTimeout: 300
+      VisibilityTimeout: 610
       MessageRetentionPeriod: 86400
 
   ProcessorQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${AWS::StackName}-processor-queue
-      VisibilityTimeout: 300
+      VisibilityTimeout: 610
       MessageRetentionPeriod: 86400
 
   ################
@@ -328,10 +328,12 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${ProjectName}-webhook-handler
-      CodeUri: s3://chiikawa-ws-code-305345298333/lambda-code.zip
+      CodeUri:
+        Bucket: aws-hackthon-lambda-code
+        Key: lambda1.zip
       Handler: app.lambda1_line.lambda_handler
       Runtime: python3.11
-      Timeout: 30
+      Timeout: 60
       MemorySize: 256
       Environment:
         Variables:
@@ -358,10 +360,12 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${ProjectName}-message-classifier
-      CodeUri: s3://chiikawa-ws-code-305345298333/lambda-code.zip
+      CodeUri:
+        Bucket: aws-hackthon-lambda-code
+        Key: lambda1.zip
       Handler: app.lambda1_classifier.lambda_handler
       Runtime: python3.11
-      Timeout: 30
+      Timeout: 300
       MemorySize: 256
       Environment:
         Variables:
@@ -377,10 +381,12 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${ProjectName}-message-processor
-      CodeUri: s3://chiikawa-ws-code-305345298333/lambda-code.zip
+      CodeUri:
+        Bucket: aws-hackthon-lambda-code
+        Key: lambda2.zip
       Handler: app.lambda2.lambda_handler
       Runtime: python3.11
-      Timeout: 900
+      Timeout: 600
       MemorySize: 3008
       Environment:
         Variables:
