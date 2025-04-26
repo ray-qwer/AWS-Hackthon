@@ -7,6 +7,7 @@
 ## System Architecture
 ![image](./架構圖.png)
 
+
 ## Functions
 | 模組 | 任務內容 |
 |------|----------|
