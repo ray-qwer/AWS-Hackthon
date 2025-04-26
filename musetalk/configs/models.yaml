@@ -1,0 +1,9 @@
+unet_model_path: "./models/musetalkV15/unet.pth"    # unet model path
+unet_config: "./models/musetalk/musetalk.json"      # unet config
+vae_type: "sd-vae-ft-mse"                           # vae model dir
+whisper_dir: "./models/whisper"                     # whisper model dir
+inference_config: "configs/inference/test_img.yaml" # inference config
+version: "v15"
+
+left_cheek_width: 90
+right_cheek_width: 90
