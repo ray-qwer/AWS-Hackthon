@@ -1,5 +1,6 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: "CloudFormation template for AWS-HACKTHON, 眾量橘 resources"
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AI Idol Interaction System
 
 Parameters:
   ProjectName:
@@ -22,6 +23,19 @@ Parameters:
     Type: String
     Description: For avoiding S3 bucket name conflicts
 
+  CodeBucket:
+    Type: String
+    Description: S3 bucket containing the Lambda function code
+
+  CodeKey:
+    Type: String
+    Description: S3 key of the Lambda function code
+
+  PublicVoiceApiKey:
+    Type: String
+    Description: Public Voice API Key
+    NoEcho: true
+
 Resources:
   ####################
   ###  S3 Buckets  ###
@@ -32,7 +46,7 @@ Resources:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Sub ${ProjectName}-static-assets-${AWS::AccountId}-${UserSuffix}
+      BucketName: !Sub ${ProjectName}-static-assets-${AWS::AccountId}-${UserSuffix}-${AWS::Region}
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -52,13 +66,12 @@ Resources:
         IgnorePublicAcls: false
         RestrictPublicBuckets: false
 
-  # S3 Bucket for Generated Images
-  ### 這邊要改寫！！存放Public Voice API的音檔跟Musetalk的影像檔！！
+  # S3 Bucket for Generated Images and Audio
   GeneratedImagesBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Sub ${ProjectName}-generated-images-${AWS::AccountId}-${UserSuffix}
+      BucketName: !Sub ${ProjectName}-generated-images-${AWS::AccountId}-${UserSuffix}-${AWS::Region}
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -77,6 +90,8 @@ Resources:
         BlockPublicPolicy: false
         IgnorePublicAcls: false
         RestrictPublicBuckets: false
+      VersioningConfiguration:
+        Status: Enabled
 
   GeneratedImagesBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -92,25 +107,67 @@ Resources:
               - s3:GetObject
             Resource: !Sub arn:aws:s3:::${GeneratedImagesBucket}/*
 
+  # S3 Bucket for Reel Videos
+  ReelS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${ProjectName}-reel-videos-${AWS::AccountId}-${UserSuffix}-${AWS::Region}
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3600
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      VersioningConfiguration:
+        Status: Enabled
+
+  ReelS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReelS3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: "*"
+            Action:
+              - s3:GetObject
+            Resource: !Sub arn:aws:s3:::${ReelS3Bucket}/*
+
   ##################
   ###  DynamoDB  ###
   ##################
 
   # DynamoDB Table
-  ConversationTable:
+  MessagesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${ProjectName}-conversations
+      TableName: !Sub ${AWS::StackName}-messages
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: user_id
           AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
       KeySchema:
         - AttributeName: user_id
           KeyType: HASH
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
+        - AttributeName: timestamp
+          KeyType: RANGE
 
   #############################
   ###  IAM Role for Lambda  ###
@@ -142,7 +199,7 @@ Resources:
                   - dynamodb:UpdateItem
                   - dynamodb:DeleteItem
                   - dynamodb:Query
-                Resource: !GetAtt ConversationTable.Arn
+                Resource: !GetAtt MessagesTable.Arn
               - Effect: Allow
                 Action:
                   - bedrock:*
@@ -158,39 +215,32 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:PutObjectAcl
+                  - s3:PutObjectVersionAcl
+                  - s3:GetObjectVersion
+                  - s3:ListBucketVersions
                   - s3:ListBucket
                   - s3:DeleteObject
+                  - s3:DeleteObjectVersion
                 Resource:
                   - !GetAtt GeneratedImagesBucket.Arn
                   - !Sub ${GeneratedImagesBucket.Arn}/*
                   - !GetAtt AssetsBucket.Arn
                   - !Sub ${AssetsBucket.Arn}/*
-
-  ################
-  ###  Lambda  ###
-  ################
-
-  # Lambda function for handling webhook requests
-  LINEBotWebhookHandler:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub ${ProjectName}-linebot
-      PackageType: Image
-      Role: !GetAtt LambdaIAMRole.Arn
-      Timeout: 60
-      MemorySize: 512
-      Architectures:
-        - arm64
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref ConversationTable
-          CHANNEL_ACCESS_TOKEN: !Ref ChannelAccessToken
-          CHANNEL_SECRET: !Ref ChannelSecret
-          ASSET_BUCKET_NAME: !Ref AssetsBucket
-          OUTPUT_BUCKET_NAME: !Ref GeneratedImagesBucket
-      Code:
-        # ImageUri: !Sub 423623870189.dkr.ecr.us-east-1.amazonaws.com/2025-aws-chiikawa-ai-workshop@sha256:0d337960cbc5aadf7b84a909d53bf94e2e72c403d4ce787d4adb5d927367454a
-          ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/my-linebot-repo:latest
+                  - !GetAtt ReelS3Bucket.Arn
+                  - !Sub ${ReelS3Bucket.Arn}/*
+                  - !Sub arn:aws:s3:::${CodeBucket}
+                  - !Sub arn:aws:s3:::${CodeBucket}/*
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: 
+                  - !GetAtt MessageQueue.Arn
+                  - !GetAtt LineQueue.Arn
+                  - !GetAtt ClassifierQueue.Arn
+                  - !GetAtt ProcessorQueue.Arn
 
   #####################
   ###  API Gateway  ###
@@ -214,7 +264,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LINEBotWebhookHandler.Arn}/invocations
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebhookHandler.Arn}/invocations
 
   # API Gateway deployment
   ApiDeployment:
@@ -236,9 +286,116 @@ Resources:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref LINEBotWebhookHandler
+      FunctionName: !Ref WebhookHandler
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/
+
+  MessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-message-queue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600  # 4 days
+
+  # SQS Queues
+  LineQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-line-queue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 86400
+
+  ClassifierQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-classifier-queue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 86400
+
+  ProcessorQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-processor-queue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 86400
+
+  ################
+  ###  Lambda  ###
+  ################
+
+  # Lambda function for LINE Bot webhook
+  WebhookHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-webhook-handler
+      CodeUri: s3://chiikawa-ws-code-305345298333/lambda-code.zip
+      Handler: app.lambda1_line.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          CHANNEL_ACCESS_TOKEN: !Ref ChannelAccessToken
+          CHANNEL_SECRET: !Ref ChannelSecret
+          TABLE_NAME: !Ref MessagesTable
+          CLASSIFIER_QUEUE_URL: !Ref ClassifierQueue
+          PROCESSOR_QUEUE_URL: !Ref ProcessorQueue
+          PUBLIC_VOICE_API_KEY: !Ref PublicVoiceApiKey
+          GENERATED_IMAGES_BUCKET_NAME: !Ref GeneratedImagesBucket
+          REEL_S3_BUCKET_NAME: !Ref ReelS3Bucket
+      Role: !GetAtt LambdaIAMRole.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /webhook
+            Method: post
+
+  # Lambda function for message classification
+  MessageClassifier:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-message-classifier
+      CodeUri: s3://chiikawa-ws-code-305345298333/lambda-code.zip
+      Handler: app.lambda1_classifier.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MessagesTable
+          PROCESSOR_QUEUE_URL: !Ref ProcessorQueue
+          PUBLIC_VOICE_API_KEY: !Ref PublicVoiceApiKey
+          GENERATED_IMAGES_BUCKET_NAME: !Ref GeneratedImagesBucket
+          REEL_S3_BUCKET_NAME: !Ref ReelS3Bucket
+      Role: !GetAtt LambdaIAMRole.Arn
+
+  # Lambda function for message processing
+  MessageProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-message-processor
+      CodeUri: s3://chiikawa-ws-code-305345298333/lambda-code.zip
+      Handler: app.lambda2.lambda_handler
+      Runtime: python3.11
+      Timeout: 900
+      MemorySize: 3008
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MessagesTable
+          PUBLIC_VOICE_API_KEY: !Ref PublicVoiceApiKey
+          GENERATED_IMAGES_BUCKET_NAME: !Ref GeneratedImagesBucket
+          REEL_S3_BUCKET_NAME: !Ref ReelS3Bucket
+      Role: !GetAtt LambdaIAMRole.Arn
+
+  # Event Source Mapping for Lambda2
+  MessageProcessorEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt MessageQueue.Arn
+      FunctionName: !Ref MessageProcessor
 
 Outputs:
   ApiEndpoint:
@@ -247,8 +404,36 @@ Outputs:
 
   DynamoDBTableName:
     Description: Name of the DynamoDB table
-    Value: !Ref ConversationTable
+    Value: !Ref MessagesTable
 
-  LambdaFunctionName:
-    Description: Name of the Lambda function
-    Value: !Ref LINEBotWebhookHandler
+  WebhookHandlerName:
+    Description: Name of the webhook handler Lambda function
+    Value: !Ref WebhookHandler
+
+  MessageProcessorName:
+    Description: Name of the message processor Lambda function
+    Value: !Ref MessageProcessor
+
+  QueueUrl:
+    Description: SQS Queue URL
+    Value: !Ref MessageQueue
+
+  LineQueueUrl:
+    Description: SQS Queue URL for LINE messages
+    Value: !Ref LineQueue
+
+  ClassifierQueueUrl:
+    Description: SQS Queue URL for classified messages
+    Value: !Ref ClassifierQueue
+
+  ProcessorQueueUrl:
+    Description: SQS Queue URL for processed messages
+    Value: !Ref ProcessorQueue
+
+  ReelS3BucketName:
+    Description: Name of the Reel S3 bucket
+    Value: !Ref ReelS3Bucket
+
+  ReelS3BucketArn:
+    Description: ARN of the Reel S3 bucket
+    Value: !GetAtt ReelS3Bucket.Arn

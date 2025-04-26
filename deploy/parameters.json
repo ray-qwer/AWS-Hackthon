@@ -1,0 +1,38 @@
+[
+    {
+        "ParameterKey": "ProjectName",
+        "ParameterValue": "chiikawa-ws"
+    },
+    {
+        "ParameterKey": "ChannelAccessToken",
+        "ParameterValue": "Aqia1CqAOR+0VpI3Toysn/mDfhT6RZ4+aLdbd/Eh34RotHOWa0dnfrGPzL3Mr9uIBKFdfiEkkmjDrW/349HJv8JO7GpmCzYhQsYkQ1g3bx6hfv09/6Rxgr+x8CyhRAkX8/as2HEMbZZGBBsVFiSRBgdB04t89/1O/w1cDnyilFU="
+    },
+    {
+        "ParameterKey": "ChannelSecret",
+        "ParameterValue": "ce09554cd3c10ff3e90375bf702ca6c4"
+    },
+    {
+        "ParameterKey": "UserSuffix",
+        "ParameterValue": "dev"
+    },
+    {
+        "ParameterKey": "CodeBucket",
+        "ParameterValue": "chiikawa-ws-code-ap-northeast-1"
+    },
+    {
+        "ParameterKey": "CodeKey",
+        "ParameterValue": "lambda-code.zip"
+    },
+    {
+        "ParameterKey": "PublicVoiceApiKey",
+        "ParameterValue": "test-key"
+    },
+    {
+        "ParameterKey": "OutputBucketName",
+        "ParameterValue": "{{OUTPUT_BUCKET_NAME}}"
+    },
+    {
+        "ParameterKey": "ReelBucketName",
+        "ParameterValue": "{{REEL_BUCKET_NAME}}"
+    }
+] 

@@ -1,106 +1,38 @@
 import json
 import os
 import boto3
-import time
-from time import sleep
 import logging
-
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import (
-    ApiClient,
-    Configuration,
-    MessagingApi,
-    ReplyMessageRequest,
-)
-from linebot.v3.webhooks import (
-    MessageEvent,
-    TextMessageContent,
-    StickerMessageContent,
-    FollowEvent
-)
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, StickerMessageContent
 import urllib.request
-
-from .app import run
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# 初始化 SQS 客戶端
+sqs = boto3.client('sqs')
+queue_url = os.getenv('SQS_QUEUE_URL')
+
+# 初始化 Bedrock 客戶端
+bedrock = boto3.client('bedrock-runtime')
+model_id = "amazon.nova-pro-v1:0"
+
 # 測試時需要
-if not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):  # 檢查是否在 Lambda 環境
+if not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
     from dotenv import load_dotenv
     load_dotenv()
 
-configuration = Configuration(access_token=os.getenv('CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
-
-# 使用單一通用處理器
-@handler.add(MessageEvent)
-def handle_message(event):
-    user_id = event.source.user_id
-    
-    # 統一處理不同消息類型
-    if isinstance(event.message, TextMessageContent):
-        user_message = event.message.text
-    elif isinstance(event.message, StickerMessageContent):
-        sticker_id = event.message.sticker_id
-        package_id = event.message.package_id
-        user_message = f"[STICKER] package_id={package_id}, sticker_id={sticker_id}"
-    else:
-        user_message = "[不支持的消息類型]"
-    
-    profile_url = f'https://api.line.me/v2/bot/profile/{user_id}'
-    headers = {
-        'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
-    }
-    
-    req = urllib.request.Request(profile_url, headers=headers)
-    
-    logger.info(f"發送請求獲取用戶資料: {profile_url}")
-    with urllib.request.urlopen(req) as response:
-        profile_json = json.loads(response.read().decode('utf-8'))
-    
-    logger.info(f"獲取到用戶資料: {profile_json}")
-    user_name = profile_json.get('displayName', '朋友')
-    
-    logger.info(f"Received message from {user_id}: {user_message}")
-    
-    response = run(user_id, user_name, user_message)
-
-    logger.info(f"Response: {response}")
-    
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        
-        line_bot_api.reply_message_with_http_info(
-            ReplyMessageRequest(
-                reply_token=event.reply_token,
-                messages=response
-            )
-        )
-
-# 專門處理文字訊息的處理器，用於測試
-def handle_text_message(event):
-    """處理文字訊息的專用函數，委派給通用處理器"""
-    logger.info("Handling text message...")
-    handle_message(event)
-    # 不需要返回值，因為 handle_message 已經處理了回覆
-
-# 專門處理貼圖訊息的處理器，用於測試
-def handle_sticker_message(event):
-    """處理貼圖訊息的專用函數，委派給通用處理器"""
-    logger.info("Handling sticker message...")
-    handle_message(event)
-    # 不需要返回值，因為 handle_message 已經處理了回覆
-
 def lambda_handler(event, context):
-    try: 
+    try:
         logger.info(f"Received event: {json.dumps(event)}")
         body = event['body']
         signature = event['headers']['x-line-signature']
-        logger.info(f"Handling request with signature: {signature}")
+        
+        # 驗證 LINE 簽名
         handler.handle(body, signature)
-        logger.info("Request handled successfully")
+        
         return {
             'statusCode': 200,
             'body': json.dumps('Success!!!')
@@ -111,6 +43,107 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': json.dumps(str(e))
         }
+
+@handler.add(MessageEvent)
+def handle_message(event):
+    try:
+        # 1. 獲取使用者資訊
+        user_id = event.source.user_id
+        user_name = get_user_name(user_id)
+        
+        # 2. 判斷訊息類型
+        message_type, content = classify_message(event.message)
+        
+        # 3. 使用 Bedrock Nova 進行訊息分類
+        message_category = classify_with_bedrock(content)
+        
+        # 4. 構建訊息
+        message = {
+            'user_id': user_id,
+            'user_name': user_name,
+            'message_type': message_type,
+            'content': content,
+            'category': message_category,
+            'reply_token': event.reply_token
+        }
+        
+        # 5. 發送到 SQS
+        sqs.send_message(
+            QueueUrl=queue_url,
+            MessageBody=json.dumps(message)
+        )
+        
+        logger.info(f"Message sent to SQS: {message}")
+        
+    except Exception as e:
+        logger.error(f"Error in handle_message: {str(e)}", exc_info=True)
+
+def get_user_name(user_id):
+    """獲取 LINE 使用者名稱"""
+    try:
+        profile_url = f'https://api.line.me/v2/bot/profile/{user_id}'
+        headers = {
+            'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
+        }
+        
+        req = urllib.request.Request(profile_url, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            profile_json = json.loads(response.read().decode('utf-8'))
+            return profile_json.get('displayName', '朋友')
+    except Exception as e:
+        logger.error(f"Error getting user name: {str(e)}")
+        return '朋友'
+
+def classify_message(message):
+    """判斷訊息類型"""
+    if isinstance(message, TextMessageContent):
+        return 'text', message.text
+    elif isinstance(message, StickerMessageContent):
+        return 'sticker', {
+            'package_id': message.package_id,
+            'sticker_id': message.sticker_id
+        }
+    else:
+        return 'unsupported', None
+
+def classify_with_bedrock(content):
+    """使用 Bedrock Nova 進行訊息分類"""
+    try:
+        prompt = f"""
+        請判斷以下訊息的類型：
+        1. 文字對話
+        2. 語音對話
+        3. 影片對話
+        
+        訊息內容：{content}
+        
+        請只回傳數字（1、2 或 3）。
+        """
+        
+        response = bedrock.invoke_model(
+            modelId=model_id,
+            body=json.dumps({
+                "prompt": prompt,
+                "max_tokens": 10,
+                "temperature": 0
+            })
+        )
+        
+        result = json.loads(response['body'].read())
+        category = result['completion'].strip()
+        
+        # 將分類結果轉換為對應的類型
+        category_map = {
+            '1': 'text',
+            '2': 'voice',
+            '3': 'video'
+        }
+        
+        return category_map.get(category, 'text')
+        
+    except Exception as e:
+        logger.error(f"Error in classify_with_bedrock: {str(e)}")
+        return 'text'  # 預設返回文字類型
 
 
 
