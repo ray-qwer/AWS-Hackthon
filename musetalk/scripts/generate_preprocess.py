@@ -112,13 +112,22 @@ def main(args):
             else:
                 print("Extracting landmarks... time-consuming operation")
                 coord_list, frame_list = get_landmark_and_bbox(input_img_list, bbox_shift)
+                # do not save initial
                 with open(crop_coord_save_path, 'wb') as f:
                     pickle.dump(coord_list, f)
             
             print(f"Number of frames: {len(frame_list)}")         
             input_latent_list = []
-            for bbox, frame in zip(coord_list, frame_list):
+            assert len(coord_list) == len(frame_list)
+            _with_face_frame_list = []
+            _with_face_coord_list = []
+            
+            REBUILD_IMG = False
+            # rebuild frame and coord if there is no face
+            for idx, (bbox, frame) in enumerate(zip(coord_list, frame_list)):
                 if bbox == coord_placeholder:
+                    # delete frame
+                    REBUILD_IMG = True
                     continue
                 x1, y1, x2, y2 = bbox
                 y2 = y2 + args.extra_margin
@@ -128,6 +137,26 @@ def main(args):
                 # vae
                 latents = vae.get_latents_for_unet(crop_frame)
                 input_latent_list.append(latents)
+                _with_face_coord_list.append(bbox)
+                _with_face_frame_list.append(input_img_list[idx])
+            
+            if REBUILD_IMG:
+                # rebuild img                
+                if os.name == "nt":
+                    root_path = "\\".join(input_img_list[0].split("\\")[:-1])
+                else:
+                    root_path = "/".join(input_img_list[0].split("/s")[:-1])
+                for new_index, original_index in enumerate(_with_face_frame_list):
+                    new_name = original_index[:-12] + f"{new_index:08d}.png"
+                    shutil.move(original_index, new_name)
+                
+                for index in range(len(_with_face_frame_list), len(input_img_list)):
+                    filename = os.path.join(root_path, f"{index:08d}.png")
+                    if os.path.exists(filename):
+                        os.remove(filename)
+                # rebuild coord
+                with open(crop_coord_save_path, 'wb') as f:
+                    pickle.dump(_with_face_coord_list, f)
 
             input_latent_list_cycle = input_latent_list + input_latent_list[::-1]
             

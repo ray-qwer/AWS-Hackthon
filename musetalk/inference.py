@@ -39,19 +39,21 @@ def model_fn(model_dir):
     Keyword arguments:
     model_dir -- the directory path where the model artifacts are present
     """
+    model_dir = "/models"
     config = OmegaConf.load(os.path.join(model_dir, "models.yaml"))
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     vae, unet, pe = load_all_model(
-        unet_model_path=config["unet_model_path"],
+        unet_model_path=os.path.join(model_dir, config["unet_model_path"]),
         vae_type=config["vae_type"],
-        unet_config=config["unet_config"],
-        device=device
+        unet_config=os.path.join(model_dir, config["unet_config"]),
+        device=device,
+        model_dir=model_dir
     )
-    audio_processor = AudioProcessor(feature_extractor_path=config["whisper_dir"])
+    audio_processor = AudioProcessor(feature_extractor_path=os.path.join(model_dir, config["whisper_dir"]))
     
     weight_dtype = unet.model.dtype
-    whisper = WhisperModel.from_pretrained(config["whisper_dir"])
+    whisper = WhisperModel.from_pretrained(os.path.join(model_dir, config["whisper_dir"]))
     whisper = whisper.to(device=device, dtype=weight_dtype).eval()
     whisper.requires_grad_(False)
     
@@ -193,7 +195,8 @@ def transform_fn(model, request_body, request_content_type,
         y2 = min(y2, frame.shape[0])
         try:
             res_frame = cv2.resize(res_frame.astype(np.uint8), (x2-x1, y2-y1))
-        except:
+        except Exception as e:
+            print(e)
             continue
         
         # Merge results with version-specific parameters
@@ -222,9 +225,9 @@ def transform_fn(model, request_body, request_content_type,
     return output_vid_name, response_content_type
 
 if __name__ == "__main__":
-    models = model_fn("./configs")
+    models = model_fn(".")
     transform_fn(models, 
-                 {"wav":"data/audio/yongen.wav", "id": "sun", "vid_name": "test_video"},
+                 {"wav":"data/audio/yongen.wav", "id": "jiachi_long", "vid_name": "jiachi_test"},
                  None,
                  200
                  )
