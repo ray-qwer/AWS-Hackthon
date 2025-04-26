@@ -343,12 +343,14 @@ Resources:
           PUBLIC_VOICE_API_KEY: !Ref PublicVoiceApiKey
           GENERATED_IMAGES_BUCKET_NAME: !Ref GeneratedImagesBucket
           REEL_S3_BUCKET_NAME: !Ref ReelS3Bucket
+          LOG_LEVEL: INFO
+          DEBUG: false
       Role: !GetAtt LambdaIAMRole.Arn
       Events:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /webhook
+            Path: /callback
             Method: post
 
   # Lambda function for message classification
@@ -437,3 +439,7 @@ Outputs:
   ReelS3BucketArn:
     Description: ARN of the Reel S3 bucket
     Value: !GetAtt ReelS3Bucket.Arn
+
+  WebhookUrl:
+    Description: "LINE Bot Webhook URL"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/callback"

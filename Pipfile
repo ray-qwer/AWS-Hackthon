@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-crawl4ai = "*"
 nest-asyncio = "*"
 line-bot-sdk = "*"
 flask = "*"

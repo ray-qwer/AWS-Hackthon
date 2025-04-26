@@ -1,5 +1,5 @@
 # import db
-from . import db  # 使用相對導入
+import db  # 使用絕對導入
 from langchain_aws import ChatBedrock
 import boto3
 import io
@@ -7,7 +7,7 @@ from PIL import Image
 
 import os
 import time
-from . import asset
+import asset  # 修改為絕對導入
 import requests
 import json
 from pydantic import BaseModel, Field
@@ -343,3 +343,80 @@ def run(user_id, name, user_input):
         
     elif status == 'processing':
         return [TextMessage(text="正在生成中，請稍等！")]
+
+from flask import Flask, request, jsonify
+from linebot.v3 import (
+    WebhookHandler
+)
+from linebot.v3.webhooks import MessageEvent
+from linebot.v3.messaging import (
+    Configuration,
+    ApiClient,
+    MessagingApi,
+    ReplyMessageRequest,
+    TextMessage
+)
+from linebot.v3.exceptions import InvalidSignatureError
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = Flask(__name__)
+
+configuration = Configuration(access_token=os.getenv('CHANNEL_ACCESS_TOKEN'))
+handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
+
+@app.route("/callback", methods=['POST'])
+def callback():
+    # 獲取請求標頭中的 X-Line-Signature 值
+    signature = request.headers['X-Line-Signature']
+
+    # 獲取請求內容
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
+
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        app.logger.error("Invalid signature. Please check your channel access token/channel secret.")
+        return jsonify({'status': 'error', 'message': 'Invalid signature'}), 400
+
+    return jsonify({'status': 'success'})
+
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    try:
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            
+            # 獲取用戶發送的文本消息
+            user_message = event.message.text
+            
+            # 記錄接收到的消息
+            app.logger.info(f"Received message: {user_message}")
+            
+            # 處理消息並生成回覆
+            reply_text = process_message(user_message)
+            
+            # 發送回覆消息
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_text)]
+                )
+            )
+            
+    except Exception as e:
+        app.logger.error(f"Error handling message: {str(e)}")
+        error_handler.handle_error(e)
+
+def process_message(message):
+    try:
+        # 這裡可以添加消息處理邏輯
+        return f"你說了: {message}"
+    except Exception as e:
+        app.logger.error(f"Error processing message: {str(e)}")
+        return "抱歉，處理消息時出現錯誤。"
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=8000, debug=True)  # 修改端口為 8000
