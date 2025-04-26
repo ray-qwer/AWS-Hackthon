@@ -5,8 +5,7 @@
 
 
 ## System Architecture
-![image](./架構圖.png)
-
+![image](https://github.com/ray-qwer/AWS-Hackthon/blob/master/架構圖.png)
 
 ## Functions
 | 模組 | 任務內容 |
