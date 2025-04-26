@@ -44,6 +44,64 @@ watch next.md
   - .mp4 (video)
 - Output: .mp4 (video)
 
+
+## DataFlow：AI 偶像訊息處理流程
+
+---
+
+### 訊息處理等級 1（純文字回覆）
+
+1. 使用者 → LINE 傳送訊息  
+2. LINE → API Gateway  
+3. API Gateway → Lambda1  
+4. Lambda1 → Nova-Agent 判斷（分類：文字）  
+5. Lambda1 → Lambda2（傳送訊息與分類）  
+6. Lambda2 → Nova-Content 生成文字回覆  
+7. Lambda2 → Lambda1（回傳生成文字）  
+8. Lambda1 → API Gateway → LINE → 用戶收到文字訊息
+
+---
+
+### 訊息處理等級 2（語音回覆）
+
+1. 使用者 → LINE 傳送訊息  
+2. LINE → API Gateway  
+3. API Gateway → Lambda1  
+4. Lambda1 → Nova-Agent 判斷（分類：語音）  
+5. Lambda1 → Lambda2（傳送訊息與分類）  
+6. Lambda2 → Nova-Content 生成文字回覆  
+7. Lambda2 → 呼叫遊戲橘子語音 API 進行語音合成  
+8. Lambda2 → 上傳語音檔案至 OutputS3  
+9. Lambda2 → 回傳「文字 + 音訊 URL」給 Lambda1  
+10. Lambda1 → API Gateway → LINE → 用戶收到語音訊息
+
+---
+
+### 訊息處理等級 3（影片回覆）
+
+1. 使用者 → LINE 傳送訊息  
+2. LINE → API Gateway  
+3. API Gateway → Lambda1  
+4. Lambda1 → Nova-Agent 判斷（分類：影片）  
+5. Lambda1 → Lambda2（傳送訊息與分類）  
+6. Lambda2 → Nova-Content 生成文字回覆  
+7. Lambda2 → 呼叫遊戲橘子語音 API 合成語音  
+8. Lambda2 → 上傳語音檔案至 OutputS3  
+9. Lambda2 → 呼叫 MuseTalk（傳入語音 + 角色代碼）  
+10. MuseTalk → 從 ReelS3 讀取偶像影片素材  
+11. MuseTalk → 回傳影片檔案給 Lambda2  
+12. Lambda2 → 上傳影片檔案至 OutputS3  
+13. Lambda2 → 回傳「文字 + 音訊 URL + 影片 URL」給 Lambda1  
+14. Lambda1 → API Gateway → LINE → 用戶收到虛擬人影片回覆
+
+---
+
+
+
+
+
+
+
 ## TeamMembers
 ray-qwer
 derek890111
